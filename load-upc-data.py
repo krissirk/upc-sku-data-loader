@@ -1,12 +1,11 @@
 import requests, json, time, os, sys, MySQLdb
 from config import *
 
-# Get key value required to access Product Catalog API from environment variable set by secret shell script and assemble header for request; exit if variable not set
-if os.environ.get("MY_API_KEY"):
-	MY_API_KEY = str(os.environ.get("MY_API_KEY"))
-	apiKey = {"ApiKey": MY_API_KEY}
+# Get key value required to access Product Catalog API from config file
+if API_KEY:
+	apiKey = {"ApiKey": API_KEY}
 else:
-	print "Environment variable not set - cannot proceed"
+	print "API Key not found - cannot proceed"
 	sys.exit(2)
 
 ######################################### FUNCTION DEFINITIONS #########################################
@@ -33,6 +32,7 @@ def insertSkus(styles, type, brandCode, cursor):
 					sqlValues += "({0},{1},{2}), ".format(skus["businessId"], skus["onlineUPC"], brandCode)
 
 	# Build the full INSERT statement with complete set of VALUES to upload (trim last 2 characters of VALUES string to get rid of trailing comma and space)
+	# UPDATE DESTINATION TABLE IF MEANT TO WORK WITH 'upc' instead
 	sqlStatement = "INSERT INTO upc_KH (SKU,UPC,Brand) VALUES {0} ON DUPLICATE KEY UPDATE UPC = VALUES (UPC);".format(sqlValues[:-2])
 
 	# Try/Catch execution of the MySQL INSERT statement
