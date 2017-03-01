@@ -1,4 +1,4 @@
-import requests, json, time, os, sys, MySQLdb
+import requests, json, time, sys, MySQLdb
 from config import *
 
 # Get key value required to access Product Catalog API from config file
