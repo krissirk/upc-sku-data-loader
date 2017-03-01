@@ -11,7 +11,7 @@ else:
 ######################################### FUNCTION DEFINITIONS #########################################
 
 # Function that iterates through API resopnse to insert each relevant SKU and associated UPC code to myoffers.io database; returns number of rows impacted
-def insertSkus(styles, type, brandCode, database, cursor):
+def insertSkus(styles, biztype, brandCode, database, cursor):
 
 	sqlValues = ""
 
@@ -21,13 +21,13 @@ def insertSkus(styles, type, brandCode, database, cursor):
 
 			for skus in colors["skus"]:			# Iterate through each child sku within a style color
 				
-				if type == "legacy":			# If processing 'legacy' business units, work with Store UPC value; else, work with online UPC
+				if biztype == "legacy":			# If processing 'legacy' business units, work with Store UPC value; else, work with online UPC
 
 					if "storeUPC" in skus:		# If a Store UPC value exists for the SKU, append the details to the VALUES portion of the INSERT statement
 						
 						sqlValues += "({0},{1},{2}), ".format(skus["businessId"], skus["storeUPC"], brandCode)
 
-				elif type == "singleEntity":
+				elif biztype == "singleEntity":
 
 					sqlValues += "({0},{1},{2}), ".format(skus["businessId"], skus["onlineUPC"], brandCode)
 
@@ -73,17 +73,22 @@ def apiRequest(url, key):
 
 print "Start: ", time.asctime( time.localtime(time.time()) )	#Log script start time to console
 
-# Initialization of dictionary containing Product Catalog paths of all online US business units and associated brand code
+# Initialization of dictionary containing Product Catalog paths & brand codes of all online US business units and associated brand code
 # Legacy brands will need to be handled differently than Single Entity brands as SE brands do not have Store UPCs that are distinct from Online UPCs
-legacyBizUnits = {"br/us": 2, "gp/us": 1, "on/us": 3}
-singleEntityBizUnits = {"at/us": 10, "brfs/us": 6, "gpfs/us": 5}
+bizUnits = {'br/us': (2, "legacy"), 
+			'gp/us': (1, "legacy"), 
+			'on/us': (3, "legacy"), 
+			'at/us': (10, "singleEntity"), 
+			'brfs/us': (6, "singleEntity"), 
+			'gpfs/us': (5, "singleEntity")
+			}
 
 # Set MySQL connection string from config file containing database information and open conncetion
 db = MySQLdb.connect(MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE)
 dbCursor = db.cursor()
 
-# Process each of the *Legacy* business units
-for bizUnit in legacyBizUnits:
+# Process each of the business units
+for bizUnit in bizUnits:
 
 	# Product Catalog API url to access ALL products for a business unit, including the SKUs
 	initialApiUrl = "https://api.gap.com/commerce/product-catalogs/catalog/{0}?&size=333&includeSkus=true".format(bizUnit)
@@ -94,7 +99,7 @@ for bizUnit in legacyBizUnits:
 	print "Total pages to process for {0}: ".format(bizUnit), pages		# Log total number of pages that need to be processed to the console
 
 	# Process initial page of SKUs for insertion to MySQL db
-	rowcount = insertSkus(catalogResponse.json()["_embedded"]["styles"], "legacy", legacyBizUnits[bizUnit], db, dbCursor)	
+	rowcount = insertSkus(catalogResponse.json()["_embedded"]["styles"], bizUnits[bizUnit][1], bizUnits[bizUnit][0], db, dbCursor)
 	print "1 page of SKUs processed for {0} - {1} records updated/inserted".format(bizUnit, rowcount)
 
 	# Grab URL of 'next' pagination link in Product Catalog response to process during first iteration of while loop
@@ -107,42 +112,7 @@ for bizUnit in legacyBizUnits:
 
 		# Make next request of Product Catalog and check the resulting response for SKU of interest
 		catalogResponse = apiRequest(nextLink, apiKey)
-		rowcount = insertSkus(catalogResponse.json()["_embedded"]["styles"], "legacy", legacyBizUnits[bizUnit], db, dbCursor)
-
-		# Grab URL of 'next' pagination link for subsequent request until the data element is no longer in the response (which will only happen during final iteration of loop)
-		if "next" in catalogResponse.json()["_links"]:
-			nextLink = catalogResponse.json()["_links"]["next"]["href"]
-
-		# Increment counter & log progress to console
-		x += 1
-		print x, "pages of SKUs processed for {0} - {1} records updated/inserted".format(bizUnit, rowcount)
-
-# Process each of the *Single Entity* business units
-for bizUnit in singleEntityBizUnits:
-
-	# Product Catalog API url to access ALL products for a business unit, including the SKUs
-	initialApiUrl = "https://api.gap.com/commerce/product-catalogs/catalog/{0}?&size=333&includeSkus=true".format(bizUnit)
-
-	# Initial Product Catalog API request - this gets the first batch of products to be processed and determines how many total pages need to be iterated through
-	catalogResponse = apiRequest(initialApiUrl, apiKey)
-	pages = catalogResponse.json()["page"]["totalPages"]				# Grab total number of pages in Product Catalog API response
-	print "Total pages to process for {0}: ".format(bizUnit), pages		# Log total number of pages that need to be processed to the console
-
-	# Process initial page of SKUs for insertion to MySQL db
-	rowcount = insertSkus(catalogResponse.json()["_embedded"]["styles"], "singleEntity", singleEntityBizUnits[bizUnit], db, dbCursor)	
-	print "1 page of SKUs processed for {0} - {1} records updated/inserted".format(bizUnit, rowcount)
-
-	# Grab URL of 'next' pagination link in Product Catalog response to process during first iteration of while loop
-	nextLink = catalogResponse.json()["_links"]["next"]["href"]
-
-	x = 1	# Initialize counter for while loop that will ensure the entire Product Catalog is processed
-
-	# Process all remaining pages of Product Catalog response
-	while x < pages:
-
-		# Make next request of Product Catalog and check the resulting response for SKU of interest
-		catalogResponse = apiRequest(nextLink, apiKey)
-		rowcount = insertSkus(catalogResponse.json()["_embedded"]["styles"], "singleEntity", singleEntityBizUnits[bizUnit], db, dbCursor)
+		rowcount = insertSkus(catalogResponse.json()["_embedded"]["styles"], bizUnits[bizUnit][1], bizUnits[bizUnit][0], db, dbCursor)
 
 		# Grab URL of 'next' pagination link for subsequent request until the data element is no longer in the response (which will only happen during final iteration of loop)
 		if "next" in catalogResponse.json()["_links"]:
