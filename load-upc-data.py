@@ -40,14 +40,14 @@ def insertSkus(styles, type, brandCode, cursor):
 
 		# Commit changes to the MySQL database and commit
 		cursor.execute(sqlStatement)
-		db.commit()						
+		db.commit()	
 
 	except:
 
 		# Rollback if there is an error
 		db.rollback()
 		db.close()
-		
+
 		print "Database error: ", time.asctime( time.localtime(time.time()) )
 		sys.exit(2)
 
