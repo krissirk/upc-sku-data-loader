@@ -10,8 +10,8 @@ else:
 
 ######################################### FUNCTION DEFINITIONS #########################################
 
-# Function that iterates through API resopnse to insert each relevant SKU and associated UPC code to myoffers.io database
-def insertSkus(styles, type, brandCode, cursor):
+# Function that iterates through API resopnse to insert each relevant SKU and associated UPC code to myoffers.io database; returns number of rows impacted
+def insertSkus(styles, type, brandCode, database, cursor):
 
 	sqlValues = ""
 
@@ -40,18 +40,18 @@ def insertSkus(styles, type, brandCode, cursor):
 
 		# Commit changes to the MySQL database and commit
 		cursor.execute(sqlStatement)
-		db.commit()	
+		database.commit()	
 
 	except:
 
 		# Rollback if there is an error
-		db.rollback()
-		db.close()
+		database.rollback()
+		database.close()
 
 		print "Database error: ", time.asctime( time.localtime(time.time()) )
 		sys.exit(2)
 
-	return
+	return cursor.rowcount
 
 # Function that makes Product Catalog API request until successful response obtained, returns that response for processing
 def apiRequest(url, key):
@@ -94,8 +94,8 @@ for bizUnit in legacyBizUnits:
 	print "Total pages to process for {0}: ".format(bizUnit), pages		# Log total number of pages that need to be processed to the console
 
 	# Process initial page of SKUs for insertion to MySQL db
-	insertSkus(catalogResponse.json()["_embedded"]["styles"], "legacy", legacyBizUnits[bizUnit], dbCursor)	
-	print "1 page of SKUs uploaded for {0}".format(bizUnit)
+	rowcount = insertSkus(catalogResponse.json()["_embedded"]["styles"], "legacy", legacyBizUnits[bizUnit], db, dbCursor)	
+	print "1 page of SKUs processed for {0} - {1} records updated/inserted".format(bizUnit, rowcount)
 
 	# Grab URL of 'next' pagination link in Product Catalog response to process during first iteration of while loop
 	nextLink = catalogResponse.json()["_links"]["next"]["href"]
@@ -107,7 +107,7 @@ for bizUnit in legacyBizUnits:
 
 		# Make next request of Product Catalog and check the resulting response for SKU of interest
 		catalogResponse = apiRequest(nextLink, apiKey)
-		insertSkus(catalogResponse.json()["_embedded"]["styles"], "legacy", legacyBizUnits[bizUnit], dbCursor)
+		rowcount = insertSkus(catalogResponse.json()["_embedded"]["styles"], "legacy", legacyBizUnits[bizUnit], db, dbCursor)
 
 		# Grab URL of 'next' pagination link for subsequent request until the data element is no longer in the response (which will only happen during final iteration of loop)
 		if "next" in catalogResponse.json()["_links"]:
@@ -115,7 +115,7 @@ for bizUnit in legacyBizUnits:
 
 		# Increment counter & log progress to console
 		x += 1
-		print x, "pages of SKUs uploaded for {0}".format(bizUnit)
+		print x, "pages of SKUs processed for {0} - {1} records updated/inserted".format(bizUnit, rowcount)
 
 # Process each of the *Single Entity* business units
 for bizUnit in singleEntityBizUnits:
@@ -129,8 +129,8 @@ for bizUnit in singleEntityBizUnits:
 	print "Total pages to process for {0}: ".format(bizUnit), pages		# Log total number of pages that need to be processed to the console
 
 	# Process initial page of SKUs for insertion to MySQL db
-	insertSkus(catalogResponse.json()["_embedded"]["styles"], "singleEntity", singleEntityBizUnits[bizUnit], dbCursor)	
-	print "1 page of SKUs uploaded for {0}".format(bizUnit)
+	rowcount = insertSkus(catalogResponse.json()["_embedded"]["styles"], "singleEntity", singleEntityBizUnits[bizUnit], db, dbCursor)	
+	print "1 page of SKUs processed for {0} - {1} records updated/inserted".format(bizUnit, rowcount)
 
 	# Grab URL of 'next' pagination link in Product Catalog response to process during first iteration of while loop
 	nextLink = catalogResponse.json()["_links"]["next"]["href"]
@@ -142,7 +142,7 @@ for bizUnit in singleEntityBizUnits:
 
 		# Make next request of Product Catalog and check the resulting response for SKU of interest
 		catalogResponse = apiRequest(nextLink, apiKey)
-		insertSkus(catalogResponse.json()["_embedded"]["styles"], "singleEntity", singleEntityBizUnits[bizUnit], dbCursor)
+		rowcount = insertSkus(catalogResponse.json()["_embedded"]["styles"], "singleEntity", singleEntityBizUnits[bizUnit], db, dbCursor)
 
 		# Grab URL of 'next' pagination link for subsequent request until the data element is no longer in the response (which will only happen during final iteration of loop)
 		if "next" in catalogResponse.json()["_links"]:
@@ -150,9 +150,10 @@ for bizUnit in singleEntityBizUnits:
 
 		# Increment counter & log progress to console
 		x += 1
-		print x, "pages of SKUs uploaded for {0}".format(bizUnit)
+		print x, "pages of SKUs processed for {0} - {1} records updated/inserted".format(bizUnit, rowcount)
 
 # Disconnect from MySQL server
+dbCursor.close()
 db.close()
 
 print "End: ", time.asctime( time.localtime(time.time()) )	# Log script completion ending time to console
