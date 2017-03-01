@@ -118,7 +118,6 @@ for bizUnit in legacyBizUnits:
 		print x, "pages of SKUs uploaded for {0}".format(bizUnit)
 
 # Process each of the *Single Entity* business units
-"""
 for bizUnit in singleEntityBizUnits:
 
 	# Product Catalog API url to access ALL products for a business unit, including the SKUs
@@ -152,7 +151,6 @@ for bizUnit in singleEntityBizUnits:
 		# Increment counter & log progress to console
 		x += 1
 		print x, "pages of SKUs uploaded for {0}".format(bizUnit)
-"""
 
 # Disconnect from MySQL server
 db.close()
