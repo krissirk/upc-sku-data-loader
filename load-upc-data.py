@@ -110,7 +110,7 @@ for bizUnit in bizUnits:
 	# Process all remaining pages of Product Catalog response
 	while x < pages:
 
-		# Make next request of Product Catalog and check the resulting response for SKU of interest
+		# Make next request of Product Catalog and process the resulting response
 		catalogResponse = apiRequest(nextLink, apiKey)
 		rowcount = insertSkus(catalogResponse.json()["_embedded"]["styles"], bizUnits[bizUnit][1], bizUnits[bizUnit][0], db, dbCursor)
 
