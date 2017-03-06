@@ -102,10 +102,13 @@ for bizUnit in bizUnits:
 	rowcount = insertSkus(catalogResponse.json()["_embedded"]["styles"], bizUnits[bizUnit][1], bizUnits[bizUnit][0], db, dbCursor)
 	print "1 page of SKUs processed for {0} - {1} records updated/inserted".format(bizUnit, rowcount)
 
-	# Grab URL of 'next' pagination link in Product Catalog response to process during first iteration of while loop
-	nextLink = catalogResponse.json()["_links"]["next"]["href"]
+	# Grab URL of 'next' pagination link in Product Catalog response if it exists in order to process during first iteration of while loop
+	if "next" in catalogResponse.json()["_links"]:
+		nextLink = catalogResponse.json()["_links"]["next"]["href"]
+		x = 1	# Initialize counter for while loop that will ensure the entire Product Catalog is processed
 
-	x = 1	# Initialize counter for while loop that will ensure the entire Product Catalog is processed
+	else:
+		x = pages + 1 # If no 'next' link, initialize counter such that it doesn't go into the while loop
 
 	# Process all remaining pages of Product Catalog response
 	while x < pages:
