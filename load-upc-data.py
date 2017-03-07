@@ -31,27 +31,35 @@ def insertSkus(styles, biztype, brandCode, database, cursor):
 
 					sqlValues += "({0},{1},{2}), ".format(skus["businessId"], skus["onlineUPC"], brandCode)
 
-	# Build the full INSERT statement with complete set of VALUES to upload (trim last 2 characters of VALUES string to get rid of trailing comma and space)
-	# UPDATE DESTINATION TABLE IF MEANT TO WORK WITH 'upc' instead
-	sqlStatement = "INSERT INTO upc_KH (SKU,UPC,Brand) VALUES {0} ON DUPLICATE KEY UPDATE UPC = VALUES (UPC);".format(sqlValues[:-2])
+	# If there are SKU-UPC values to insert, proceed with executing the database query and return the resulting row count; else, return '0'
+	if sqlValues:
 
-	# Try/Catch execution of the MySQL INSERT statement
-	try:
+		# Build the full INSERT statement with complete set of VALUES to upload (trim last 2 characters of VALUES string to get rid of trailing comma and space)
+		sqlStatement = "INSERT INTO upc_KH (SKU,UPC,Brand) VALUES {0} ON DUPLICATE KEY UPDATE UPC = VALUES (UPC);".format(sqlValues[:-2])
 
-		# Commit changes to the MySQL database and commit
-		cursor.execute(sqlStatement)
-		database.commit()	
+		# Try/Catch execution of the MySQL INSERT statement
+		try:
 
-	except:
+			# Commit changes to the MySQL database and commit
+			cursor.execute(sqlStatement)
+			database.commit()	
 
-		# Rollback if there is an error
-		database.rollback()
-		database.close()
+		except (MySQLdb.Error, MySQLdb.Warning) as e:
 
-		print "Database error: ", time.asctime( time.localtime(time.time()) )
-		sys.exit(2)
+			# Rollback if there is an error
+			database.rollback()
+			database.close()
 
-	return cursor.rowcount
+			# Log error to the console
+			print "Database error: ", time.asctime( time.localtime(time.time()) ), " - ", e
+			print sqlStatement
+			sys.exit(2)
+
+		return cursor.rowcount
+
+	else:
+
+		return 0
 
 # Function that makes Product Catalog API request until successful response obtained, returns that response for processing
 def apiRequest(url, key):
