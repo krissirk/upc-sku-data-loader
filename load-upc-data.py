@@ -35,7 +35,7 @@ def insertSkus(styles, biztype, brandCode, database, cursor):
 	if sqlValues:
 
 		# Build the full INSERT statement with complete set of VALUES to upload (trim last 2 characters of VALUES string to get rid of trailing comma and space)
-		sqlStatement = "INSERT INTO upc_KH (SKU,UPC,Brand) VALUES {0} ON DUPLICATE KEY UPDATE UPC = VALUES (UPC);".format(sqlValues[:-2])
+		sqlStatement = "INSERT INTO upc (SKU,UPC,Brand) VALUES {0} ON DUPLICATE KEY UPDATE UPC = VALUES (UPC);".format(sqlValues[:-2])
 
 		# Try/Catch execution of the MySQL INSERT statement
 		try:
