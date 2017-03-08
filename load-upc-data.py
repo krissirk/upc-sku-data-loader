@@ -1,9 +1,12 @@
 import requests, json, time, sys, MySQLdb
 from config import *
 
-# Get key value required to access Product Catalog API from config file
+# Get key value required to access Product Catalog API from config file; build complete header to accompany api request
 if API_KEY:
-	apiKey = {"ApiKey": API_KEY}
+	myHeader = {"ApiKey": API_KEY, 
+				"User-Agent": "UPC-to-SKU MySQL Loader Python Script", 
+				"From": CONTACT
+				}
 else:
 	print "API Key not found - cannot proceed"
 	sys.exit(2)
@@ -62,16 +65,16 @@ def insertSkus(styles, biztype, brandCode, database, cursor):
 		return 0
 
 # Function that makes Product Catalog API request until successful response obtained, returns that response for processing
-def apiRequest(url, key):
+def apiRequest(url):
 
-	apiResponse = requests.get(url, headers=key)
+	apiResponse = requests.get(url, headers=myHeader)
 	apiResponse.close()
 	apiStatusCode = apiResponse.status_code
 
 	# Make sure initial request is successful; if not, re-request until successful response obtained
 	while apiStatusCode != 200:
 		print url, " - ", apiStatusCode, ": ", apiResponse.elapsed
-		apiResponse = requests.get(url, headers=key)
+		apiResponse = requests.get(url, headers=myHeader)
 		apiResponse.close()
 		apiStatusCode = apiResponse.status_code
 
@@ -102,7 +105,7 @@ for bizUnit in bizUnits:
 	initialApiUrl = "https://api.gap.com/commerce/product-catalogs/catalog/{0}?&size=200&includeSkus=true&approvalStatus=APPROVED".format(bizUnit)
 
 	# Initial Product Catalog API request - this gets the first batch of products to be processed and determines how many total pages need to be iterated through
-	catalogResponse = apiRequest(initialApiUrl, apiKey)
+	catalogResponse = apiRequest(initialApiUrl)
 	pages = catalogResponse.json()["page"]["totalPages"]				# Grab total number of pages in Product Catalog API response
 	print "Total pages to process for {0}: ".format(bizUnit), pages		# Log total number of pages that need to be processed to the console
 
@@ -122,7 +125,7 @@ for bizUnit in bizUnits:
 	while x < pages:
 
 		# Make next request of Product Catalog and process the resulting response
-		catalogResponse = apiRequest(nextLink, apiKey)
+		catalogResponse = apiRequest(nextLink)
 		rowcount = insertSkus(catalogResponse.json()["_embedded"]["styles"], bizUnits[bizUnit][1], bizUnits[bizUnit][0], db, dbCursor)
 
 		# Grab URL of 'next' pagination link for subsequent request until the data element is no longer in the response (which will only happen during final iteration of loop)
