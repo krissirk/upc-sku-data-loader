@@ -99,7 +99,7 @@ dbCursor = db.cursor()
 for bizUnit in bizUnits:
 
 	# Product Catalog API url to access all approved products within a business unit, including the SKUs
-	initialApiUrl = "https://api.gap.com/commerce/product-catalogs/catalog/{0}?&size=333&includeSkus=true&approvalStatus=APPROVED".format(bizUnit)
+	initialApiUrl = "https://api.gap.com/commerce/product-catalogs/catalog/{0}?&size=200&includeSkus=true&approvalStatus=APPROVED".format(bizUnit)
 
 	# Initial Product Catalog API request - this gets the first batch of products to be processed and determines how many total pages need to be iterated through
 	catalogResponse = apiRequest(initialApiUrl, apiKey)
