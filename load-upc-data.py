@@ -1,4 +1,4 @@
-import requests, json, time, sys, MySQLdb
+import requests, json, time, sys, mysql.connector
 from config import *
 
 # Get key value required to access Product Catalog API from config file; build complete header to accompany api request
@@ -47,7 +47,7 @@ def insertSkus(styles, biztype, brandCode, database, cursor):
 			cursor.execute(sqlStatement)
 			database.commit()
 
-		except (MySQLdb.Error, MySQLdb.Warning) as e:
+		except (mysql.connector.Error, mysql.connector.Warning) as e:
 
 			# Rollback if there is an error
 			database.rollback()
@@ -94,8 +94,18 @@ bizUnits = {'br/us': (2, "legacy"),
 			'gpfs/us': (5, "singleEntity")
 			}
 
+# Initialization of dictionary containg MySQL connection string using information from config file
+dbConfig = {
+  'user': MYSQL_USER,
+  'password': MYSQL_PASSWORD,
+  'host': MYSQL_HOST,
+  'database': MYSQL_DATABASE,
+  'raise_on_warnings': True,
+  'use_pure': False,
+}
+
 # Set MySQL connection string from config file containing database information and open conncetion
-db = MySQLdb.connect(MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE)
+db = mysql.connector.connect(**dbConfig)
 dbCursor = db.cursor()
 
 # Process each of the business units
