@@ -1,14 +1,15 @@
-import requests, json, time, sys, MySQLdb
+#!/usr/bin/env python3
+import requests, json, time, sys, mysql.connector
 from config import *
 
 # Get key value required to access Product Catalog API from config file; build complete header to accompany api request
 if API_KEY:
-	myHeader = {"ApiKey": API_KEY, 
-				"User-Agent": "UPC-to-SKU MySQL Loader Python Script", 
+	myHeader = {"ApiKey": API_KEY,
+				"User-Agent": "UPC-to-SKU MySQL Loader Python Script",
 				"From": CONTACT
 				}
 else:
-	print "API Key not found - cannot proceed"
+	print("API Key not found - cannot proceed")
 	sys.exit(2)
 
 ######################################### FUNCTION DEFINITIONS #########################################
@@ -23,11 +24,11 @@ def insertSkus(styles, biztype, brandCode, database, cursor):
 		for colors in items["styleColors"]:		# Iterate through each child style color within a style
 
 			for skus in colors["skus"]:			# Iterate through each child sku within a style color
-				
+
 				if biztype == "legacy":			# If processing 'legacy' business units, work with Store UPC value; else, work with online UPC
 
 					if "storeUPC" in skus:		# If a Store UPC value exists for the SKU, append the details to the VALUES portion of the INSERT statement
-						
+
 						sqlValues += "({0},{1},{2}), ".format(skus["businessId"], skus["storeUPC"], brandCode)
 
 				elif biztype == "singleEntity":
@@ -45,17 +46,17 @@ def insertSkus(styles, biztype, brandCode, database, cursor):
 
 			# Commit changes to the MySQL database and commit
 			cursor.execute(sqlStatement)
-			database.commit()	
+			database.commit()
 
-		except (MySQLdb.Error, MySQLdb.Warning) as e:
+		except (mysql.connector.Error, mysql.connector.Warning) as e:
 
 			# Rollback if there is an error
 			database.rollback()
 			database.close()
 
 			# Log error to the console
-			print "Database error: ", time.asctime( time.localtime(time.time()) ), " - ", e
-			print sqlStatement
+			print("Database error: ", time.asctime( time.localtime(time.time()) ), " - ", e)
+			print(sqlStatement)
 			sys.exit(2)
 
 		return cursor.rowcount
@@ -73,7 +74,7 @@ def apiRequest(url):
 
 	# Make sure initial request is successful; if not, re-request until successful response obtained
 	while apiStatusCode != 200:
-		print url, " - ", apiStatusCode, ": ", apiResponse.elapsed
+		print(url, " - ", apiStatusCode, ": ", apiResponse.elapsed)
 		apiResponse = requests.get(url, headers=myHeader)
 		apiResponse.close()
 		apiStatusCode = apiResponse.status_code
@@ -82,20 +83,30 @@ def apiRequest(url):
 
 ######################################### END OF FUNCTION DEFINITIONS #########################################
 
-print "Start: ", time.asctime( time.localtime(time.time()) )	#Log script start time to console
+print("Start: ", time.asctime( time.localtime(time.time()) ))	#Log script start time to console
 
 # Initialization of dictionary containing Product Catalog paths & brand codes of all online US business units and associated brand code
 # Legacy brands will need to be handled differently than Single Entity brands as SE brands do not have Store UPCs that are distinct from Online UPCs
-bizUnits = {'br/us': (2, "legacy"), 
-			'gp/us': (1, "legacy"), 
-			'on/us': (3, "legacy"), 
-			'at/us': (10, "singleEntity"), 
-			'brfs/us': (6, "singleEntity"), 
+bizUnits = {'br/us': (2, "legacy"),
+			'gp/us': (1, "legacy"),
+			'on/us': (3, "legacy"),
+			'at/us': (10, "singleEntity"),
+			'brfs/us': (6, "singleEntity"),
 			'gpfs/us': (5, "singleEntity")
 			}
 
+# Initialization of dictionary containg MySQL connection string using information from config file
+dbConfig = {
+  'user': MYSQL_USER,
+  'password': MYSQL_PASSWORD,
+  'host': MYSQL_HOST,
+  'database': MYSQL_DATABASE,
+  'raise_on_warnings': True,
+  'use_pure': False,
+}
+
 # Set MySQL connection string from config file containing database information and open conncetion
-db = MySQLdb.connect(MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DATABASE)
+db = mysql.connector.connect(**dbConfig)
 dbCursor = db.cursor()
 
 # Process each of the business units
@@ -107,11 +118,11 @@ for bizUnit in bizUnits:
 	# Initial Product Catalog API request - this gets the first batch of products to be processed and determines how many total pages need to be iterated through
 	catalogResponse = apiRequest(initialApiUrl)
 	pages = catalogResponse.json()["page"]["totalPages"]				# Grab total number of pages in Product Catalog API response
-	print "Total pages to process for {0}: ".format(bizUnit), pages		# Log total number of pages that need to be processed to the console
+	print("Total pages to process for {0}: ".format(bizUnit), pages)	# Log total number of pages that need to be processed to the console
 
 	# Process initial page of SKUs for insertion to MySQL db
 	rowcount = insertSkus(catalogResponse.json()["_embedded"]["styles"], bizUnits[bizUnit][1], bizUnits[bizUnit][0], db, dbCursor)
-	print "1 page of SKUs processed for {0} - {1} records updated/inserted".format(bizUnit, rowcount)
+	print("1 page of SKUs processed for {0} - {1} records updated/inserted".format(bizUnit, rowcount))
 
 	# Grab URL of 'next' pagination link in Product Catalog response if it exists in order to process during first iteration of while loop
 	if "next" in catalogResponse.json()["_links"]:
@@ -134,10 +145,10 @@ for bizUnit in bizUnits:
 
 		# Increment counter & log progress to console
 		x += 1
-		print x, "pages of SKUs processed for {0} - {1} records updated/inserted".format(bizUnit, rowcount)
+		print(x, "pages of SKUs processed for {0} - {1} records updated/inserted".format(bizUnit, rowcount))
 
 # Disconnect from MySQL server
 dbCursor.close()
 db.close()
 
-print "End: ", time.asctime( time.localtime(time.time()) )	# Log script completion ending time to console
+print("End: ", time.asctime( time.localtime(time.time()) ))	# Log script completion ending time to console
