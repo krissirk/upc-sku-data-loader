@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import requests, json, time, sys, mysql.connector
 from config import *
 
