@@ -67,16 +67,29 @@ def insertSkus(styles, biztype, brandCode, database, cursor):
 # Function that makes Product Catalog API request until successful response obtained, returns that response for processing
 def apiRequest(url):
 
-	apiResponse = requests.get(url, headers=myHeader)
-	apiResponse.close()
-	apiStatusCode = apiResponse.status_code
+	apiStatusCode = 0
+
+	try:
+		apiResponse = requests.get(url, headers=myHeader, timeout=120)
+		apiResponse.close()
+		apiStatusCode = apiResponse.status_code
+	except:
+		None
 
 	# Make sure initial request is successful; if not, re-request until successful response obtained
 	while apiStatusCode != 200:
-		print(url, " - ", apiStatusCode, ": ", apiResponse.elapsed)
-		apiResponse = requests.get(url, headers=myHeader)
-		apiResponse.close()
-		apiStatusCode = apiResponse.status_code
+
+		try:
+			print(url, " - ", apiStatusCode, ": ", apiResponse.elapsed)
+		except:
+			print(url + " done waiting for response - will retry.")
+
+		try:
+			apiResponse = requests.get(url, headers=myHeader, timeout=120)
+			apiResponse.close()
+			apiStatusCode = apiResponse.status_code
+		except:
+			print(url + " done waiting for response - will retry.")
 
 	return apiResponse
 
@@ -116,35 +129,61 @@ for bizUnit in bizUnits:
 
 	# Initial Product Catalog API request - this gets the first batch of products to be processed and determines how many total pages need to be iterated through
 	catalogResponse = apiRequest(initialApiUrl)
-	pages = catalogResponse.json()["page"]["totalPages"]				# Grab total number of pages in Product Catalog API response
-	print("Total pages to process for {0}: ".format(bizUnit), pages)	# Log total number of pages that need to be processed to the console
 
-	# Process initial page of SKUs for insertion to MySQL db
-	rowcount = insertSkus(catalogResponse.json()["_embedded"]["styles"], bizUnits[bizUnit][1], bizUnits[bizUnit][0], db, dbCursor)
-	print("1 page of SKUs processed for {0} - {1} records updated/inserted".format(bizUnit, rowcount))
+	try:
+		pages = catalogResponse.json()["page"]["totalPages"]				# Grab total number of pages in Product Catalog API response
+		print("Total pages to process for {0}: ".format(bizUnit), pages)	# Log total number of pages that need to be processed to the console
 
-	# Grab URL of 'next' pagination link in Product Catalog response if it exists in order to process during first iteration of while loop
-	if "next" in catalogResponse.json()["_links"]:
-		nextLink = catalogResponse.json()["_links"]["next"]["href"]
-		x = 1	# Initialize counter for while loop that will ensure the entire Product Catalog is processed
+		# Process initial page of SKUs for insertion to MySQL db
+		rowcount = insertSkus(catalogResponse.json()["_embedded"]["styles"], bizUnits[bizUnit][1], bizUnits[bizUnit][0], db, dbCursor)
+		print("1 page of SKUs processed for {0} - {1} records updated/inserted".format(bizUnit, rowcount))
 
-	else:
-		x = pages + 1 # If no 'next' link, initialize counter such that it doesn't go into the while loop
+		# Grab URL of 'next' pagination link in Product Catalog response if it exists in order to process during first iteration of while loop
+		if "next" in catalogResponse.json()["_links"]:
+			nextLink = catalogResponse.json()["_links"]["next"]["href"]
+			x = 1	# Initialize counter for while loop that will ensure the entire Product Catalog is processed
+
+		else:
+			x = pages + 1 # If no 'next' link, initialize counter such that it doesn't go into the while loop
+
+	except ValueError as err:
+		# Log issue to console
+		print("Could not process initial response {0} due to error {1}. See errorlog.txt for invalid JSON. Moving on to process next business unit {2}.".format(initialApiUrl, err, bizUnit))
+
+		# Write response details to text file so they don't clog the console
+		with open('errorlog.txt', 'a') as errorFile:
+			errorFile.write(time.asctime( time.localtime(time.time()) ) + "\n")
+			errorFile.write("Invalid JSON response for: {0}\n".format(initialApiUrl))
+			errorFile.write(catalogResponse.text + "\n\n")
+
+		#  Set variables to 0 to ensure script doesn't enter while loop to process additional responses becuase next URL isn't available
+		x = 0
+		pages = 0
 
 	# Process all remaining pages of Product Catalog response
 	while x < pages:
 
 		# Make next request of Product Catalog and process the resulting response
 		catalogResponse = apiRequest(nextLink)
-		rowcount = insertSkus(catalogResponse.json()["_embedded"]["styles"], bizUnits[bizUnit][1], bizUnits[bizUnit][0], db, dbCursor)
 
-		# Grab URL of 'next' pagination link for subsequent request until the data element is no longer in the response (which will only happen during final iteration of loop)
-		if "next" in catalogResponse.json()["_links"]:
-			nextLink = catalogResponse.json()["_links"]["next"]["href"]
+		try:
+			rowcount = insertSkus(catalogResponse.json()["_embedded"]["styles"], bizUnits[bizUnit][1], bizUnits[bizUnit][0], db, dbCursor)
 
-		# Increment counter & log progress to console
-		x += 1
-		print(x, "pages of SKUs processed for {0} - {1} records updated/inserted".format(bizUnit, rowcount))
+			# Grab URL of 'next' pagination link for subsequent request until the data element is no longer in the response (which will only happen during final iteration of loop)
+			if "next" in catalogResponse.json()["_links"]:
+				nextLink = catalogResponse.json()["_links"]["next"]["href"]
+
+			# Increment counter & log progress to console
+			x += 1
+			print(x, "pages of SKUs processed for {0} - {1} records updated/inserted".format(bizUnit, rowcount))
+
+		except ValueError as err:
+			# Log issue to console and response details to text file
+			print("Could not process response for {0} due to error {1}. See errorlog.txt for invalid JSON.".format(nextLink, err))
+			with open('errorlog.txt', 'a') as errorFile:
+				errorFile.write(time.asctime( time.localtime(time.time()) ) + "\n")
+				errorFile.write("Invalid JSON response for: {0}\n".format(nextLink))
+				errorFile.write(catalogResponse.text + "\n\n")
 
 # Disconnect from MySQL server
 dbCursor.close()
