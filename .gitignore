@@ -1,5 +1,6 @@
 config.py
 secrets.sh
+errorlog.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
