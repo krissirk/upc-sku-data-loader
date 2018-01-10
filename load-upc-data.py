@@ -13,7 +13,7 @@ else:
 
 ######################################### FUNCTION DEFINITIONS #########################################
 
-# Function that iterates through API resopnse to insert each relevant SKU and associated UPC code to myoffers.io database; returns number of rows impacted
+# Function that iterates through API response to insert each relevant SKU and associated UPC code to myoffers.io database; returns number of rows impacted
 def insertSkus(styles, biztype, brandCode, database, cursor):
 
 	sqlValues = ""
